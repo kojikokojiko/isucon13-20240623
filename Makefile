@@ -28,7 +28,7 @@ DIGEST_DIR := ./digest-log
 
 # 最新の .digest ファイルの内容を表示するターゲット
 head-latest-digest:
-	@LINES=$${LINES:-10}; \
+	@LINES=$${LINES:-100}; \
 	latest_file=$$(ls -t $(DIGEST_DIR)/*.digest 2>/dev/null | head -n 1); \
 	if [ -z "$$latest_file" ]; then \
 		echo "No .digest file found in $(DIGEST_DIR)."; \
