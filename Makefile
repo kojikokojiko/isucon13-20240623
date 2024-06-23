@@ -1,5 +1,5 @@
 # デフォルトターゲット
-all: install_alp install_pt_query_digest install_query_digester
+install: install_alp install_pt_query_digest install_query_digester
 
 install_alp:
 	@echo "Installing alp..."
@@ -23,10 +23,17 @@ install_query_digester:
 	sudo install query-digester /usr/local/bin
 
 
+.PHONY: install install_alp install_pt_query_digest install_query_digester 
+
+
 # ディレクトリのパス
 DIGEST_DIR := ./digest-log
+# データベースの設定
+DB_NAME := isupipe
+SQL_DIR := webapp/sql/initdb.d
 
 # 最新の .digest ファイルの内容を表示するターゲット
+.PHONY: head-latest-digest
 head-latest-digest:
 	@LINES=$${LINES:-100}; \
 	latest_file=$$(ls -t $(DIGEST_DIR)/*.digest 2>/dev/null | head -n 1); \
@@ -38,4 +45,13 @@ head-latest-digest:
 	head -n $$LINES "$$latest_file"
 
 
-.PHONY: all install_alp install_pt_query_digest install_query_digester head-latest-digest
+# データベースの再作成とスキーマの初期化
+.PHONY: change_db_schema
+change_db_schema:
+	@echo "Dropping and creating database $(DB_NAME)..."
+	@echo "DROP DATABASE IF EXISTS $(DB_NAME);" | sudo mysql
+	@echo "CREATE DATABASE $(DB_NAME);" | sudo mysql
+	@echo "Initializing database schema..."
+	@cat $(SQL_DIR)/10_schema.sql | sudo mysql $(DB_NAME)
+	@echo "Database $(DB_NAME) initialized successfully."
+
