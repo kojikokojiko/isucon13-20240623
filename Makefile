@@ -22,4 +22,16 @@ install_query_digester:
 	cd query-digester && \
 	sudo install query-digester /usr/local/bin
 
-.PHONY: all install_alp install_pt_query_digest install_query_digester
+# 最新の .digest ファイルの内容を表示するターゲット
+head-latest-digest:
+	@LINES=${LINES:-10}; \
+	latest_file=$$(ls -t $(DIR)/*.digest 2>/dev/null | head -n 1); \
+	if [ -z "$$latest_file" ]; then \
+		echo "No .digest file found in $(DIR)."; \
+		exit 1; \
+	fi; \
+	echo "Newest .digest file: $$latest_file"; \
+	head -n $$LINES "$$latest_file"
+
+
+.PHONY: all install_alp install_pt_query_digest install_query_digester head-latest-digest
