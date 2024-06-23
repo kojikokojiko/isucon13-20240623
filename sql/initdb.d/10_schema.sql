@@ -76,9 +76,7 @@ CREATE TABLE `livecomments` (
   `livestream_id` BIGINT NOT NULL,
   `comment` VARCHAR(255) NOT NULL,
   `tip` BIGINT NOT NULL DEFAULT 0,
-  `created_at` BIGINT NOT NULL,
-  -- INDEX `idx_livecomments_id_livestream_id` (`id`, `livestream_id`)
-  
+  `created_at` BIGINT NOT NULL
 ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 
 -- ユーザからのライブコメントのスパム報告
