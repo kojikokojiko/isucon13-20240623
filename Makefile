@@ -30,7 +30,7 @@ install_query_digester:
 DIGEST_DIR := ./digest-log
 # データベースの設定
 DB_NAME := isupipe
-SQL_DIR := webapp/sql/initdb.d
+SQL_DIR := sql/initdb.d
 
 # 最新の .digest ファイルの内容を表示するターゲット
 .PHONY: head-latest-digest
