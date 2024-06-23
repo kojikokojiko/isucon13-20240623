@@ -6,7 +6,7 @@ echo "現在のブランチ: $current_branch"
 
 # 1つ目のコマンドをバックグラウンドで実行
 # /home/isucon/private_isu/benchmarker/bin/benchmarker -u /home/isucon/private_isu/benchmarker/userdata -t http://172.31.38.101 &
-
+../bench run --enable-ssl
 # 2つ目のコマンドをフォアグラウンドで実行
 sudo query-digester -duration 70
 
