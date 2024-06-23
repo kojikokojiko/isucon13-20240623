@@ -259,7 +259,7 @@ func registerHandler(c echo.Context) error {
 	// 非同期で外部コマンドを実行する
 	go func() {
 		if out, err := exec.Command("pdnsutil", "add-record", "u.isucon.local", req.Name, "A", "0", powerDNSSubdomainAddress).CombinedOutput(); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, string(out)+": "+err.Error())
+			fmt.Fprintf(os.Stderr, "failed to execute pdnsutil: %s: %s\n", string(out), err.Error())
 		}
 	}()
 
