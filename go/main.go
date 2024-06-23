@@ -93,6 +93,11 @@ func connectDB(logger echo.Logger) (*sqlx.DB, error) {
 		conf.ParseTime = parseTime
 	}
 
+	// プリペアドステートメントを無効にするために `interpolateParams=true` を設定
+	conf.Params = map[string]string{
+		"interpolateParams": "true",
+	}
+
 	db, err := sqlx.Open("mysql", conf.FormatDSN())
 	if err != nil {
 		return nil, err
