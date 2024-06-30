@@ -236,32 +236,30 @@ func registerHandler(c echo.Context) error {
 		HashedPassword: string(hashedPassword),
 	}
 
-	// Insert user and theme in a single transaction
-	query := `
-		INSERT INTO users (name, display_name, description, password) 
-		VALUES (:name, :display_name, :description, :password);
-		INSERT INTO themes (user_id, dark_mode) 
-		VALUES (LAST_INSERT_ID(), :dark_mode);
-	`
-
-	_, err = tx.NamedExecContext(ctx, query, map[string]interface{}{
-		"name":         userModel.Name,
-		"display_name": userModel.DisplayName,
-		"description":  userModel.Description,
-		"password":     userModel.HashedPassword,
-		"dark_mode":    req.Theme.DarkMode,
-	})
-
+	result, err := tx.NamedExecContext(ctx, "INSERT INTO users (name, display_name, description, password) VALUES(:name, :display_name, :description, :password)", userModel)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert user and theme: "+err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert user: "+err.Error())
 	}
 
-	// userID := userModel.ID
+	userID, err := result.LastInsertId()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get last inserted user id: "+err.Error())
+	}
+
+	themeModel := ThemeModel{
+		UserID:   userID,
+		DarkMode: req.Theme.DarkMode,
+	}
+
+	if _, err := tx.NamedExecContext(ctx, "INSERT INTO themes (user_id, dark_mode) VALUES(:user_id, :dark_mode)", themeModel); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert user theme: "+err.Error())
+	}
 
 	if out, err := exec.Command("pdnsutil", "add-record", "u.isucon.local", req.Name, "A", "0", powerDNSSubdomainAddress).CombinedOutput(); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, string(out)+": "+err.Error())
 	}
 
+	userModel.ID = userID
 	user, err := fillUserResponseForRegisterHandler(ctx, tx, userModel)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
