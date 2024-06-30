@@ -337,38 +337,22 @@ func loginHandler(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// ユーザ詳細API
+// / ユーザ詳細API
 // GET /api/user/:username
 func getUserHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 	if err := verifyUserSession(c); err != nil {
-		// echo.NewHTTPErrorが返っているのでそのまま出力
 		return err
 	}
 
 	username := c.Param("username")
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
+	user, err := fetchUserDetailsForGetUserHandler(ctx, username)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
-	}
-	defer tx.Rollback()
-
-	userModel := UserModel{}
-	if err := tx.GetContext(ctx, &userModel, "SELECT * FROM users WHERE name = ?", username); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "not found user that has the given username")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user: "+err.Error())
-	}
-
-	user, err := fillUserResponse(ctx, tx, userModel)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
-	}
-
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch user details: "+err.Error())
 	}
 
 	return c.JSON(http.StatusOK, user)
@@ -426,6 +410,45 @@ func fillUserResponse(ctx context.Context, tx *sqlx.Tx, userModel UserModel) (Us
 			DarkMode: themeModel.DarkMode,
 		},
 		IconHash: fmt.Sprintf("%x", iconHash),
+	}
+
+	return user, nil
+}
+
+func fetchUserDetailsForGetUserHandler(ctx context.Context, username string) (User, error) {
+	tx, err := dbConn.BeginTxx(ctx, nil)
+	if err != nil {
+		return User{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var user User
+	query := `
+	SELECT u.id, u.name, u.display_name, u.description, t.id, t.dark_mode, COALESCE(i.image, '') as image
+	FROM users u
+	LEFT JOIN themes t ON u.id = t.user_id
+	LEFT JOIN icons i ON u.id = i.user_id
+	WHERE u.name = ?
+	`
+
+	row := tx.QueryRowxContext(ctx, query, username)
+	var image []byte
+	if err := row.Scan(&user.ID, &user.Name, &user.DisplayName, &user.Description, &user.Theme.ID, &user.Theme.DarkMode, &image); err != nil {
+		return User{}, fmt.Errorf("failed to scan user details: %w", err)
+	}
+
+	if len(image) == 0 {
+		image, err = os.ReadFile(fallbackImage)
+		if err != nil {
+			return User{}, fmt.Errorf("failed to read fallback image: %w", err)
+		}
+	}
+
+	iconHash := sha256.Sum256(image)
+	user.IconHash = fmt.Sprintf("%x", iconHash)
+
+	if err := tx.Commit(); err != nil {
+		return User{}, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return user, nil
