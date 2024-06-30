@@ -479,7 +479,8 @@ func getLivecommentData(ctx context.Context, tx *sqlx.Tx, livecommentID int64) (
 			t.id as theme_id, t.dark_mode, 
 			COALESCE(i.image, '') as user_image,
 			ls.id as livestream_id, ls.title as livestream_title, ls.description as livestream_description, 
-			ls.playlist_url, ls.thumbnail_url, ls.start_at, ls.end_at
+			ls.playlist_url, ls.thumbnail_url, ls.start_at, ls.end_at,
+			tags.id as tag_id,tags.name as tag_name
 		FROM 
 			livecomments lc
 		LEFT JOIN 
@@ -490,6 +491,10 @@ func getLivecommentData(ctx context.Context, tx *sqlx.Tx, livecommentID int64) (
 			icons i ON u.id = i.user_id
 		LEFT JOIN 
 			livestreams ls ON lc.livestream_id = ls.id
+		LEFT JOIN 
+			livestream_tags  ON ls.id = livestream_tags.livestream_id
+		LEFT JOIN 
+			tags ON livestream_tags.tag_id = tags.id
 		WHERE 
 			lc.id = ?
 	`
