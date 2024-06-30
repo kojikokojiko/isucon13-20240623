@@ -107,18 +107,21 @@ func reserveLivestreamHandler(c echo.Context) error {
 
 	// 予約枠をみて、予約が可能か調べる
 	// NOTE: 並列な予約のoverbooking防止にFOR UPDATEが必要
-	var availableSlots int
-	if err := tx.GetContext(ctx, &availableSlots, `
-        SELECT COUNT(*) 
-        FROM reservation_slots 
-        WHERE start_at <= ? AND end_at >= ? AND slot > 0 
-        FOR UPDATE`, req.EndAt, req.StartAt); err != nil {
+	var slots []*ReservationSlotModel
+	if err := tx.SelectContext(ctx, &slots, `
+		SELECT start_at, end_at, slot 
+		FROM reservation_slots 
+		WHERE start_at >= ? AND end_at <= ? 
+		FOR UPDATE`, req.StartAt, req.EndAt); err != nil {
 		c.Logger().Warnf("予約枠一覧取得でエラー発生: %+v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get reservation_slots: "+err.Error())
 	}
 
-	if availableSlots == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("予約期間 %d ~ %dに対して、予約区間 %d ~ %dが予約できません", termStartAt.Unix(), termEndAt.Unix(), req.StartAt, req.EndAt))
+	for _, slot := range slots {
+		if slot.Slot < 1 {
+			c.Logger().Infof("%d ~ %d予約枠の残数 = %d\n", slot.StartAt, slot.EndAt, slot.Slot)
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("予約期間 %d ~ %dに対して、予約区間 %d ~ %dが予約できません", req.StartAt.Unix(), req.EndAt.Unix(), slot.StartAt, slot.EndAt))
+		}
 	}
 
 	var (
