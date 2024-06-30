@@ -485,19 +485,16 @@ func getLivecommentReportsHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, reports)
 }
-
 func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel LivestreamModel) (Livestream, error) {
 	type LivestreamResponseModel struct {
 		LivestreamModel
-		OwnerID         int64          `db:"owner_id"`
-		OwnerName       string         `db:"owner_name"`
-		DisplayName     string         `db:"display_name"`
-		UserDescription string         `db:"user_description"`
-		ThemesID        int64          `db:"themes_id"`
-		DarkMode        bool           `db:"dark_mode"`
-		Icon            []byte         `db:"icon"`
-		TagID           sql.NullInt64  `db:"tag_id"`
-		TagName         sql.NullString `db:"tag_name"`
+		OwnerID         int64  `db:"owner_id"`
+		OwnerName       string `db:"owner_name"`
+		DisplayName     string `db:"display_name"`
+		UserDescription string `db:"user_description"`
+		ThemesID        int64  `db:"themes_id"`
+		DarkMode        bool   `db:"dark_mode"`
+		Icon            []byte `db:"icon"`
 	}
 
 	var livestreamResponseModels []LivestreamResponseModel
@@ -510,36 +507,38 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 			u.description AS user_description, 
 			themes.id AS themes_id,
 			themes.dark_mode AS dark_mode,
-			icons.image as icon,
-			t.id AS tag_id,
-			t.name AS tag_name
+			icons.image as icon
 		FROM livestreams l
 		LEFT JOIN users u ON l.user_id = u.id
 		LEFT JOIN themes ON u.id = themes.user_id
 		LEFT JOIN icons ON u.id = icons.user_id
-		LEFT JOIN livestream_tags lt ON l.id = lt.livestream_id
-		LEFT JOIN tags t ON lt.tag_id = t.id
 		WHERE l.id = ?
-		`
+	`
 	if err := tx.SelectContext(ctx, &livestreamResponseModels, query, livestreamModel.ID); err != nil {
 		return Livestream{}, err
 	}
-
-	var firstResponse = livestreamResponseModels[0]
 
 	if len(livestreamResponseModels) == 0 {
 		return Livestream{}, sql.ErrNoRows
 	}
 
+	var firstResponse = livestreamResponseModels[0]
+
 	// Extract tags
-	tagsMap := make(map[int64]Tag)
-	for _, m := range livestreamResponseModels {
-		if m.TagID.Valid {
-			tagsMap[m.TagID.Int64] = Tag{
-				ID:   m.TagID.Int64,
-				Name: m.TagName.String,
-			}
-		}
+	var tags []Tag
+	tagsQuery := `
+		SELECT t.id, t.name
+		FROM livestream_tags lt
+		LEFT JOIN tags t ON lt.tag_id = t.id
+		WHERE lt.livestream_id = ?
+	`
+	if err := tx.SelectContext(ctx, &tags, tagsQuery, livestreamModel.ID); err != nil {
+		return Livestream{}, err
+	}
+
+	// タグが空の場合でも空のスライスとして設定
+	if tags == nil {
+		tags = []Tag{}
 	}
 
 	// Process icon image
@@ -555,19 +554,13 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 	}
 	iconHash := sha256.Sum256(image)
 
-	// Convert map to slice
-	tags := make([]Tag, 0, len(tagsMap))
-	for _, tag := range tagsMap {
-		tags = append(tags, tag)
-	}
-
 	var owner = User{
 		ID:          firstResponse.OwnerID,
 		Name:        firstResponse.OwnerName,
 		DisplayName: firstResponse.DisplayName,
 		Description: firstResponse.UserDescription,
 		Theme: Theme{
-			ID:       firstResponse.ID,
+			ID:       firstResponse.ThemesID,
 			DarkMode: firstResponse.DarkMode,
 		},
 		IconHash: fmt.Sprintf("%x", iconHash),
