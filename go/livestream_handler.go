@@ -538,6 +538,8 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 	}
 
 	// デバッグ用ログ出力
+	log.Printf("livestreamModel.ID: %+v", livestreamModel.ID)
+	// デバッグ用ログ出力
 	log.Printf("Tags: %+v", tags)
 	// Process icon image
 	var image []byte
