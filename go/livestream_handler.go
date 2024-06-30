@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -487,10 +489,15 @@ func getLivecommentReportsHandler(c echo.Context) error {
 func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel LivestreamModel) (Livestream, error) {
 	type LivestreamResponseModel struct {
 		LivestreamModel
-		OwnerID   int64          `db:"owner_id"`
-		OwnerName string         `db:"owner_name"`
-		TagID     sql.NullInt64  `db:"tag_id"`
-		TagName   sql.NullString `db:"tag_name"`
+		OwnerID     int64          `db:"owner_id"`
+		OwnerName   string         `db:"owner_name"`
+		DisplayName string         `db:"display_name"`
+		Description string         `db:"description"`
+		ThemesID    int64          `db:"themes_id"`
+		DarkMode    bool           `db:"dark_mode"`
+		Icon        []byte         `db:"icon"`
+		TagID       sql.NullInt64  `db:"tag_id"`
+		TagName     sql.NullString `db:"tag_name"`
 	}
 
 	var livestreamResponseModels []LivestreamResponseModel
@@ -499,10 +506,17 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 			l.*, 
 			u.id AS owner_id, 
 			u.name AS owner_name,
+			u.display_name AS display_name,
+			u.description AS description, 
+			themes.id AS themes_id,
+			themes.dark_mode AS dark_mode,
+			icons.image as icon,
 			t.id AS tag_id,
 			t.name AS tag_name
 		FROM livestreams l
 		LEFT JOIN users u ON l.user_id = u.id
+		LEFT JOIN themes ON u.id = themes.user_id
+		LEFT JOIN icons ON u.id = icons.user_id
 		LEFT JOIN livestream_tags lt ON l.id = lt.livestream_id
 		LEFT JOIN tags t ON lt.tag_id = t.id
 		WHERE l.id = ?
@@ -511,14 +525,10 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		return Livestream{}, err
 	}
 
+	var firstResponse = livestreamResponseModels[0]
+
 	if len(livestreamResponseModels) == 0 {
 		return Livestream{}, sql.ErrNoRows
-	}
-
-	// Extract owner information
-	owner := User{
-		ID:   livestreamResponseModels[0].OwnerID,
-		Name: livestreamResponseModels[0].OwnerName,
 	}
 
 	// Extract tags
@@ -532,23 +542,48 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		}
 	}
 
+	// Process icon image
+	var image []byte
+	if firstResponse.Icon != nil && len(firstResponse.Icon) > 0 {
+		image = firstResponse.Icon
+	} else {
+		var err error
+		image, err = os.ReadFile(fallbackImage)
+		if err != nil {
+			return Livestream{}, err
+		}
+	}
+	iconHash := sha256.Sum256(image)
+
 	// Convert map to slice
 	tags := make([]Tag, 0, len(tagsMap))
 	for _, tag := range tagsMap {
 		tags = append(tags, tag)
 	}
 
+	var owner = User{
+		ID:          firstResponse.OwnerID,
+		Name:        firstResponse.OwnerName,
+		DisplayName: firstResponse.DisplayName,
+		Description: firstResponse.Description,
+		Theme: Theme{
+			ID:       firstResponse.ID,
+			DarkMode: firstResponse.DarkMode,
+		},
+		IconHash: fmt.Sprintf("%x", iconHash),
+	}
+
 	// Create the Livestream response
 	livestream := Livestream{
-		ID:           livestreamResponseModels[0].ID,
+		ID:           firstResponse.ID,
 		Owner:        owner,
-		Title:        livestreamResponseModels[0].Title,
+		Title:        firstResponse.Title,
 		Tags:         tags,
-		Description:  livestreamResponseModels[0].Description,
-		PlaylistUrl:  livestreamResponseModels[0].PlaylistUrl,
-		ThumbnailUrl: livestreamResponseModels[0].ThumbnailUrl,
-		StartAt:      livestreamResponseModels[0].StartAt,
-		EndAt:        livestreamResponseModels[0].EndAt,
+		Description:  firstResponse.Description,
+		PlaylistUrl:  firstResponse.PlaylistUrl,
+		ThumbnailUrl: firstResponse.ThumbnailUrl,
+		StartAt:      firstResponse.StartAt,
+		EndAt:        firstResponse.EndAt,
 	}
 
 	return livestream, nil
