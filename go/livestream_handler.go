@@ -522,8 +522,8 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 	var tags []Tag
 	tagQuery := `
 		SELECT 
-			t.id AS tag_id,
-			t.name AS tag_name
+			t.id AS id,
+			t.name AS name
 		FROM livestream_tags lt
 		LEFT JOIN tags t ON lt.tag_id = t.id
 		WHERE lt.livestream_id = ?
