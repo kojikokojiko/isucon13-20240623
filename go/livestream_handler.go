@@ -492,7 +492,7 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		OwnerID         int64          `db:"owner_id"`
 		OwnerName       string         `db:"owner_name"`
 		DisplayName     string         `db:"display_name"`
-		UserDescription string         `db:"description"`
+		UserDescription string         `db:"user_description"`
 		ThemesID        int64          `db:"themes_id"`
 		DarkMode        bool           `db:"dark_mode"`
 		Icon            []byte         `db:"icon"`
