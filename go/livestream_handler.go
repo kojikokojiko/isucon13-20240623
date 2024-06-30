@@ -635,6 +635,10 @@ func fetchLivestreamDetailsByID(ctx context.Context, tx *sqlx.Tx, livestreamID i
 		return Livestream{}, err
 	}
 
+	// タグが空の場合でも空のスライスとして設定
+	if tags == nil {
+		tags = []Tag{}
+	}
 	owner := User{
 		ID:          livestreamResponse.OwnerID,
 		Name:        livestreamResponse.OwnerName,
