@@ -475,6 +475,7 @@ func fillUserResponseForRegisterHandler(ctx context.Context, tx *sqlx.Tx, userMo
 	return user, nil
 }
 
+// memo
 func fetchUserDetailsByID(ctx context.Context, userID int64) (User, error) {
 	tx, err := dbConn.BeginTxx(ctx, nil)
 	if err != nil {
