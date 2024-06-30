@@ -528,6 +528,16 @@ func fillLivecommentResponse(ctx context.Context, tx *sqlx.Tx, livecommentRespon
 		IconHash: fmt.Sprintf("%x", iconHash),
 	}
 
+	tags := make([]Tag, 0, len(reportResponses))
+	for _, response := range reportResponses {
+		if response.TagID != 0 {
+			tags = append(tags, Tag{
+				ID:   response.TagID,
+				Name: response.TagName,
+			})
+		}
+	}
+
 	livestream := Livestream{
 		ID:           livecommentResponse.LivestreamID,
 		Owner:        commentOwner,
