@@ -489,15 +489,15 @@ func getLivecommentReportsHandler(c echo.Context) error {
 func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel LivestreamModel) (Livestream, error) {
 	type LivestreamResponseModel struct {
 		LivestreamModel
-		OwnerID     int64          `db:"owner_id"`
-		OwnerName   string         `db:"owner_name"`
-		DisplayName string         `db:"display_name"`
-		Description string         `db:"description"`
-		ThemesID    int64          `db:"themes_id"`
-		DarkMode    bool           `db:"dark_mode"`
-		Icon        []byte         `db:"icon"`
-		TagID       sql.NullInt64  `db:"tag_id"`
-		TagName     sql.NullString `db:"tag_name"`
+		OwnerID         int64          `db:"owner_id"`
+		OwnerName       string         `db:"owner_name"`
+		DisplayName     string         `db:"display_name"`
+		UserDescription string         `db:"description"`
+		ThemesID        int64          `db:"themes_id"`
+		DarkMode        bool           `db:"dark_mode"`
+		Icon            []byte         `db:"icon"`
+		TagID           sql.NullInt64  `db:"tag_id"`
+		TagName         sql.NullString `db:"tag_name"`
 	}
 
 	var livestreamResponseModels []LivestreamResponseModel
@@ -507,8 +507,8 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 			u.id AS owner_id, 
 			u.name AS owner_name,
 			u.display_name AS display_name,
-			u.description AS description, 
-			themes.id AS themes_id,
+			u.description AS user_description, 
+			themes.id AS themes_id,PLP
 			themes.dark_mode AS dark_mode,
 			icons.image as icon,
 			t.id AS tag_id,
@@ -565,7 +565,7 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		ID:          firstResponse.OwnerID,
 		Name:        firstResponse.OwnerName,
 		DisplayName: firstResponse.DisplayName,
-		Description: firstResponse.Description,
+		Description: firstResponse.UserDescription,
 		Theme: Theme{
 			ID:       firstResponse.ID,
 			DarkMode: firstResponse.DarkMode,
