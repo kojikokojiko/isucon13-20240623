@@ -120,7 +120,7 @@ func reserveLivestreamHandler(c echo.Context) error {
 	for _, slot := range slots {
 		if slot.Slot < 1 {
 			c.Logger().Infof("%d ~ %d予約枠の残数 = %d\n", slot.StartAt, slot.EndAt, slot.Slot)
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("予約期間 %d ~ %dに対して、予約区間 %d ~ %dが予約できません", req.StartAt.Unix(), req.EndAt.Unix(), slot.StartAt, slot.EndAt))
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("予約期間 %d ~ %dに対して、予約区間 %d ~ %dが予約できません", termStartAt.Unix(), termEndAt.Unix(), req.StartAt, req.EndAt))
 		}
 	}
 
