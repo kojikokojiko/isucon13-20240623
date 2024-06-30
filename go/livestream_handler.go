@@ -485,6 +485,7 @@ func getLivecommentReportsHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, reports)
 }
+
 func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel LivestreamModel) (Livestream, error) {
 	type LivestreamResponseModel struct {
 		LivestreamModel
