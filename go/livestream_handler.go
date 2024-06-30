@@ -485,7 +485,6 @@ func getLivecommentReportsHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, reports)
 }
-
 func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel LivestreamModel) (Livestream, error) {
 	type LivestreamResponseModel struct {
 		LivestreamModel
@@ -498,7 +497,7 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		Icon            []byte `db:"icon"`
 	}
 
-	var livestreamResponseModel LivestreamResponseModel
+	var livestreamResponseModels []LivestreamResponseModel
 	query := `
 		SELECT 
 			l.*, 
@@ -514,29 +513,33 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		LEFT JOIN themes ON u.id = themes.user_id
 		LEFT JOIN icons ON u.id = icons.user_id
 		WHERE l.id = ?
-		`
-	if err := tx.GetContext(ctx, &livestreamResponseModel, query, livestreamModel.ID); err != nil {
+	`
+	if err := tx.SelectContext(ctx, &livestreamResponseModels, query, livestreamModel.ID); err != nil {
 		return Livestream{}, err
 	}
 
-	// タグを取得するための別のクエリ
+	if len(livestreamResponseModels) == 0 {
+		return Livestream{}, sql.ErrNoRows
+	}
+
+	var firstResponse = livestreamResponseModels[0]
+
+	// Extract tags
 	var tags []Tag
-	tagQuery := `
-		SELECT 
-			t.id AS id,
-			t.name AS name
+	tagsQuery := `
+		SELECT t.id, t.name
 		FROM livestream_tags lt
 		LEFT JOIN tags t ON lt.tag_id = t.id
 		WHERE lt.livestream_id = ?
-		`
-	if err := tx.SelectContext(ctx, &tags, tagQuery, livestreamModel.ID); err != nil {
+	`
+	if err := tx.SelectContext(ctx, &tags, tagsQuery, livestreamModel.ID); err != nil {
 		return Livestream{}, err
 	}
 
 	// Process icon image
 	var image []byte
-	if livestreamResponseModel.Icon != nil && len(livestreamResponseModel.Icon) > 0 {
-		image = livestreamResponseModel.Icon
+	if firstResponse.Icon != nil && len(firstResponse.Icon) > 0 {
+		image = firstResponse.Icon
 	} else {
 		var err error
 		image, err = os.ReadFile(fallbackImage)
@@ -547,13 +550,13 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 	iconHash := sha256.Sum256(image)
 
 	var owner = User{
-		ID:          livestreamResponseModel.OwnerID,
-		Name:        livestreamResponseModel.OwnerName,
-		DisplayName: livestreamResponseModel.DisplayName,
-		Description: livestreamResponseModel.UserDescription,
+		ID:          firstResponse.OwnerID,
+		Name:        firstResponse.OwnerName,
+		DisplayName: firstResponse.DisplayName,
+		Description: firstResponse.UserDescription,
 		Theme: Theme{
-			ID:       livestreamResponseModel.ThemesID,
-			DarkMode: livestreamResponseModel.DarkMode,
+			ID:       firstResponse.ThemesID,
+			DarkMode: firstResponse.DarkMode,
 		},
 		IconHash: fmt.Sprintf("%x", iconHash),
 	}
