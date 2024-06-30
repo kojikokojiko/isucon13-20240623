@@ -575,15 +575,15 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 
 	// Create the Livestream response
 	livestream := Livestream{
-		ID:           firstResponse.ID,
+		ID:           livestreamModel.ID,
 		Owner:        owner,
-		Title:        firstResponse.Title,
+		Title:        livestreamModel.Title,
 		Tags:         tags,
-		Description:  firstResponse.Description,
-		PlaylistUrl:  firstResponse.PlaylistUrl,
-		ThumbnailUrl: firstResponse.ThumbnailUrl,
-		StartAt:      firstResponse.StartAt,
-		EndAt:        firstResponse.EndAt,
+		Description:  livestreamModel.Description,
+		PlaylistUrl:  livestreamModel.PlaylistUrl,
+		ThumbnailUrl: livestreamModel.ThumbnailUrl,
+		StartAt:      livestreamModel.StartAt,
+		EndAt:        livestreamModel.EndAt,
 	}
 
 	return livestream, nil
