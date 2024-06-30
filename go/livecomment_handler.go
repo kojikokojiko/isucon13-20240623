@@ -525,6 +525,7 @@ func fillLivecommentResponse(ctx context.Context, tx *sqlx.Tx, livecommentRespon
 
 	livestream := Livestream{
 		ID:           livecommentResponse.LivestreamID,
+		Owner:        commentOwner,
 		Title:        livecommentResponse.LivestreamTitle,
 		Description:  livecommentResponse.LivestreamDescription,
 		PlaylistUrl:  livecommentResponse.PlaylistURL,
@@ -666,6 +667,7 @@ func fillLivecommentReportResponse(ctx context.Context, tx *sqlx.Tx, reportRespo
 
 	livestream := Livestream{
 		ID:           reportResponse.LivestreamID,
+		Owner:        commentOwner,
 		Title:        reportResponse.LivestreamTitle,
 		Description:  reportResponse.LivestreamDescription,
 		PlaylistUrl:  reportResponse.PlaylistURL,
