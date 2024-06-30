@@ -236,31 +236,33 @@ func registerHandler(c echo.Context) error {
 		HashedPassword: string(hashedPassword),
 	}
 
-	result, err := tx.NamedExecContext(ctx, "INSERT INTO users (name, display_name, description, password) VALUES(:name, :display_name, :description, :password)", userModel)
+	// Insert user and theme in a single transaction
+	query := `
+		INSERT INTO users (name, display_name, description, password) 
+		VALUES (:name, :display_name, :description, :password);
+		INSERT INTO themes (user_id, dark_mode) 
+		VALUES (LAST_INSERT_ID(), :dark_mode);
+	`
+
+	_, err = tx.NamedExecContext(ctx, query, map[string]interface{}{
+		"name":         userModel.Name,
+		"display_name": userModel.DisplayName,
+		"description":  userModel.Description,
+		"password":     userModel.HashedPassword,
+		"dark_mode":    req.Theme.DarkMode,
+	})
+
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert user: "+err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert user and theme: "+err.Error())
 	}
 
-	userID, err := result.LastInsertId()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get last inserted user id: "+err.Error())
-	}
-
-	userModel.ID = userID
-
-	themeModel := ThemeModel{
-		UserID:   userID,
-		DarkMode: req.Theme.DarkMode,
-	}
-	if _, err := tx.NamedExecContext(ctx, "INSERT INTO themes (user_id, dark_mode) VALUES(:user_id, :dark_mode)", themeModel); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert user theme: "+err.Error())
-	}
+	// userID := userModel.ID
 
 	if out, err := exec.Command("pdnsutil", "add-record", "u.isucon.local", req.Name, "A", "0", powerDNSSubdomainAddress).CombinedOutput(); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, string(out)+": "+err.Error())
 	}
 
-	user, err := fillUserResponse(ctx, tx, userModel)
+	user, err := fillUserResponseForRegisterHandler(ctx, tx, userModel)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
 	}
@@ -449,6 +451,46 @@ func fetchUserDetailsForGetUserHandler(ctx context.Context, username string) (Us
 
 	if err := tx.Commit(); err != nil {
 		return User{}, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return user, nil
+}
+
+func fillUserResponseForRegisterHandler(ctx context.Context, tx *sqlx.Tx, userModel UserModel) (User, error) {
+	themeModel := ThemeModel{}
+	var image []byte
+
+	// Fetch theme and icon in a single query
+	query := `
+		SELECT t.id, t.dark_mode, COALESCE(i.image, '') AS image 
+		FROM themes t
+		LEFT JOIN icons i ON t.user_id = i.user_id
+		WHERE t.user_id = ?
+	`
+
+	err := tx.QueryRowxContext(ctx, query, userModel.ID).Scan(&themeModel.ID, &themeModel.DarkMode, &image)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return User{}, err
+		}
+		image, err = os.ReadFile(fallbackImage)
+		if err != nil {
+			return User{}, err
+		}
+	}
+
+	iconHash := sha256.Sum256(image)
+
+	user := User{
+		ID:          userModel.ID,
+		Name:        userModel.Name,
+		DisplayName: userModel.DisplayName,
+		Description: userModel.Description,
+		Theme: Theme{
+			ID:       themeModel.ID,
+			DarkMode: themeModel.DarkMode,
+		},
+		IconHash: fmt.Sprintf("%x", iconHash),
 	}
 
 	return user, nil
