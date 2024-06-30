@@ -508,7 +508,7 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 			u.name AS owner_name,
 			u.display_name AS display_name,
 			u.description AS user_description, 
-			themes.id AS themes_id,PLP
+			themes.id AS themes_id,
 			themes.dark_mode AS dark_mode,
 			icons.image as icon,
 			t.id AS tag_id,
