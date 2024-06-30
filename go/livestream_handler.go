@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -536,6 +537,8 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		return Livestream{}, err
 	}
 
+	// デバッグ用ログ出力
+	log.Printf("Tags: %+v", tags)
 	// Process icon image
 	var image []byte
 	if firstResponse.Icon != nil && len(firstResponse.Icon) > 0 {
