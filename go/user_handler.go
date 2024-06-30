@@ -513,3 +513,46 @@ func fetchUserDetailsByID(ctx context.Context, userID int64) (User, error) {
 
 	return user, nil
 }
+
+func fetchUserDetailsByIDForReaction(ctx context.Context, userID int64) (User, error) {
+	type UserResponseModel struct {
+		UserModel
+		ThemeID  int64  `db:"theme_id"`
+		DarkMode bool   `db:"dark_mode"`
+		Icon     []byte `db:"icon"`
+	}
+	var userResponse UserResponseModel
+	query := `
+		SELECT u.*, t.id AS theme_id, t.dark_mode, COALESCE(i.image, '') AS icon
+		FROM users u
+		LEFT JOIN themes t ON u.id = t.user_id
+		LEFT JOIN icons i ON u.id = i.user_id
+		WHERE u.id = ?
+	`
+	if err := dbConn.GetContext(ctx, &userResponse, query, userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, err
+		}
+		image, err := os.ReadFile(fallbackImage)
+		if err != nil {
+			return User{}, err
+		}
+		userResponse.Icon = image
+	}
+
+	iconHash := sha256.Sum256(userResponse.Icon)
+
+	user := User{
+		ID:          userResponse.ID,
+		Name:        userResponse.Name,
+		DisplayName: userResponse.DisplayName,
+		Description: userResponse.Description,
+		Theme: Theme{
+			ID:       userResponse.ThemeID,
+			DarkMode: userResponse.DarkMode,
+		},
+		IconHash: fmt.Sprintf("%x", iconHash),
+	}
+
+	return user, nil
+}
