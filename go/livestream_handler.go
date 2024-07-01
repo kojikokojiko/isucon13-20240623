@@ -473,7 +473,15 @@ func getLivecommentReportsHandler(c echo.Context) error {
 
 	reports := make([]LivecommentReport, len(reportModels))
 	for i := range reportModels {
-		report, err := fillLivecommentReportResponse(ctx, tx, *reportModels[i])
+		reportResponse, err := getLivecommentReportData(ctx, tx, reportModels[i].ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "not found livecomment report with the specified ID")
+		}
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to get livecomment report: "+err.Error())
+		}
+
+		report, err := fillLivecommentReportResponse(ctx, tx, reportResponse)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill livecomment report: "+err.Error())
 		}
