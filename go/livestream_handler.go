@@ -582,3 +582,87 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 
 	return livestream, nil
 }
+
+func fetchLivestreamDetailsByID(ctx context.Context, tx *sqlx.Tx, livestreamID int64) (Livestream, error) {
+	type LivestreamResponseModel struct {
+		LivestreamModel
+		OwnerID         int64  `db:"owner_id"`
+		OwnerName       string `db:"owner_name"`
+		DisplayName     string `db:"display_name"`
+		UserDescription string `db:"user_description"`
+		ThemeID         int64  `db:"theme_id"`
+		DarkMode        bool   `db:"dark_mode"`
+		Icon            []byte `db:"icon"`
+	}
+
+	var livestreamResponse LivestreamResponseModel
+	query := `
+		SELECT 
+			l.*, 
+			u.id AS owner_id, 
+			u.name AS owner_name,
+			u.display_name AS display_name,
+			u.description AS user_description, 
+			t.id AS theme_id,
+			t.dark_mode AS dark_mode,
+			COALESCE(i.image, '') AS icon
+		FROM livestreams l
+		LEFT JOIN users u ON l.user_id = u.id
+		LEFT JOIN themes t ON u.id = t.user_id
+		LEFT JOIN icons i ON u.id = i.user_id
+		WHERE l.id = ?
+	`
+	if err := tx.GetContext(ctx, &livestreamResponse, query, livestreamID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Livestream{}, err
+		}
+		image, err := os.ReadFile(fallbackImage)
+		if err != nil {
+			return Livestream{}, err
+		}
+		livestreamResponse.Icon = image
+	}
+
+	iconHash := sha256.Sum256(livestreamResponse.Icon)
+
+	var tags []Tag
+	tagsQuery := `
+		SELECT t.id, t.name
+		FROM livestream_tags lt
+		LEFT JOIN tags t ON lt.tag_id = t.id
+		WHERE lt.livestream_id = ?
+	`
+	if err := tx.SelectContext(ctx, &tags, tagsQuery, livestreamID); err != nil {
+		return Livestream{}, err
+	}
+
+	// タグが空の場合でも空のスライスとして設定
+	if tags == nil {
+		tags = []Tag{}
+	}
+	owner := User{
+		ID:          livestreamResponse.OwnerID,
+		Name:        livestreamResponse.OwnerName,
+		DisplayName: livestreamResponse.DisplayName,
+		Description: livestreamResponse.UserDescription,
+		Theme: Theme{
+			ID:       livestreamResponse.ThemeID,
+			DarkMode: livestreamResponse.DarkMode,
+		},
+		IconHash: fmt.Sprintf("%x", iconHash),
+	}
+
+	livestream := Livestream{
+		ID:           livestreamResponse.ID,
+		Owner:        owner,
+		Title:        livestreamResponse.Title,
+		Tags:         tags,
+		Description:  livestreamResponse.Description,
+		PlaylistUrl:  livestreamResponse.PlaylistUrl,
+		ThumbnailUrl: livestreamResponse.ThumbnailUrl,
+		StartAt:      livestreamResponse.StartAt,
+		EndAt:        livestreamResponse.EndAt,
+	}
+
+	return livestream, nil
+}
